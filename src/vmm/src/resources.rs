@@ -4,7 +4,7 @@
 use std::convert::From;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use logger::info;
+use logger::{info, warn};
 use mmds::data_store::{Mmds, MmdsVersion};
 use mmds::ns::MmdsNetworkStack;
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,8 @@ use crate::vmm_config::mmds::{MmdsConfig, MmdsConfigError};
 use crate::vmm_config::net::*;
 use crate::vmm_config::vsock::*;
 use crate::vstate::vcpu::VcpuConfig;
+use versionize_derive::Versionize;
+use versionize::{VersionMap, Versionize, VersionizeResult};
 
 type Result<E> = std::result::Result<(), E>;
 
@@ -72,6 +74,16 @@ impl std::fmt::Display for Error {
     }
 }
 
+// TODO move to its own file
+/// Used for describing the TPM Configuration
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Versionize)]
+#[serde(deny_unknown_fields)]
+pub struct TpmDeviceConfig {
+    /// Path to the socket to be used
+    pub socket: String
+}
+
+
 /// Used for configuring a vmm from one single json passed to the Firecracker process.
 #[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct VmmConfig {
@@ -93,6 +105,8 @@ pub struct VmmConfig {
     net_devices: Vec<NetworkInterfaceConfig>,
     #[serde(rename = "vsock")]
     vsock_device: Option<VsockDeviceConfig>,
+    #[serde(rename = "tpm")]
+    tpm_device: Option<TpmDeviceConfig>,
 }
 
 /// A data structure that encapsulates the device configurations
@@ -176,6 +190,11 @@ impl VmResources {
 
         if let Some(mmds_config) = vmm_config.mmds_config {
             resources.set_mmds_config(mmds_config, &instance_info.id)?;
+        }
+
+        // TODO update this to create the TPM Device
+        if let Some(tpm_config) = vmm_config.tpm_device {
+            warn!("Tpm data specified {}", tpm_config.socket);
         }
 
         Ok(resources)
@@ -488,6 +507,7 @@ impl From<&VmResources> for VmmConfig {
             mmds_config: resources.mmds_config(),
             net_devices: resources.net_builder.configs(),
             vsock_device: resources.vsock.config(),
+            tpm_device: None
         }
     }
 }
