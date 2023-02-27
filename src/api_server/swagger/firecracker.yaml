@@ -651,6 +651,34 @@ paths:
           description: Internal server error
           schema:
             $ref: "#/definitions/Error"
+    
+  /tpm:
+    put:
+      summary: Creates/updates a TPM device. Pre-boot only.
+      description:
+        The first call creates the device with the configuration specified
+        in body. Subsequent calls will update the device configuration.
+        May fail if update is not possible.
+      operationId: putGuestTPM
+      parameters:
+        - name: body
+          in: body
+          description: Guest TPM properties
+          required: true
+          schema: 
+            $ref: "#/definitions/TPM"
+      responses:
+        204:
+          description: TPM created/updated
+        400:
+          description: TPM cannot be created due to bad input
+          schema:
+            $ref: "#/definitions/Error"
+        default:
+          description: Internal server error
+          schema:
+            $ref: "#/definitions/Error"
+
 
 definitions:
   Balloon:
@@ -1230,3 +1258,13 @@ definitions:
       vsock_id:
         type: string
         description: This parameter has been deprecated since v1.0.0.
+  TPM:
+    type: object
+    description:
+      Defines a TPM device, backed by a UNIX socket communicating with a TPM device on the host.
+    required:
+      - socket
+    properties:
+      socket:
+        type: string
+        description: Path to UNIX socket, which communicates with a TPM Device
