@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::convert::From;
+use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use logger::{info, warn};
@@ -54,6 +55,8 @@ pub enum Error {
     VmConfig(VmConfigError),
     /// Vsock device configuration error.
     VsockDevice(VsockConfigError),
+    /// TPM device configuration error.
+    TpmDevice(TpmConfigError)
 }
 
 impl std::fmt::Display for Error {
@@ -70,6 +73,7 @@ impl std::fmt::Display for Error {
             Error::NetDevice(err) => write!(f, "Network device error: {}", err),
             Error::VmConfig(err) => write!(f, "VM config error: {}", err),
             Error::VsockDevice(err) => write!(f, "Vsock device error: {}", err),
+            Error::TpmDevice(err) => write!(f, "Tpm device error: {}", err)
         }
     }
 }
@@ -83,7 +87,23 @@ pub struct TpmDeviceConfig {
     pub socket: String
 }
 
+/// Errors associated with TPM config errors
+#[derive(Debug, derive_more::From)]
+pub enum TpmConfigError {
+    /// General TPM config error, TODO change
+    GeneralTpmError
+}
 
+impl fmt::Display for TpmConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::TpmConfigError::*;
+        match *self {
+            GeneralTpmError => {
+                write!(f, "General TPM Error!")
+            }
+        }
+    }
+}
 /// Used for configuring a vmm from one single json passed to the Firecracker process.
 #[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct VmmConfig {
@@ -192,9 +212,8 @@ impl VmResources {
             resources.set_mmds_config(mmds_config, &instance_info.id)?;
         }
 
-        // TODO update this to create the TPM Device
         if let Some(tpm_config) = vmm_config.tpm_device {
-            warn!("Tpm data specified {}", tpm_config.socket);
+            resources.set_tpm_device(tpm_config)?;
         }
 
         Ok(resources)
@@ -421,6 +440,13 @@ impl VmResources {
     /// Sets a vsock device to be attached when the VM starts.
     pub fn set_vsock_device(&mut self, config: VsockDeviceConfig) -> Result<VsockConfigError> {
         self.vsock.insert(config)
+    }
+
+    /// Sets a tpm device to be attached when the VM starts.
+    pub fn set_tpm_device(&mut self, _config: TpmDeviceConfig) -> Result<TpmConfigError> {
+        // TODO insert device here...
+        warn!("Inserting TPM device now...");
+        Ok(())
     }
 
     /// Setter for mmds config.

@@ -23,6 +23,7 @@ use crate::request::net::{parse_patch_net, parse_put_net};
 use crate::request::snapshot::{parse_patch_vm_state, parse_put_snapshot};
 use crate::request::version::parse_get_version;
 use crate::request::vsock::parse_put_vsock;
+use crate::request::tpm::parse_put_tpm;
 use crate::ApiServer;
 
 pub(crate) enum RequestAction {
@@ -117,6 +118,7 @@ impl ParsedRequest {
             }
             (Method::Put, "snapshot", Some(body)) => parse_put_snapshot(body, path_tokens.get(1)),
             (Method::Put, "vsock", Some(body)) => parse_put_vsock(body),
+            (Method::Put, "tpm", Some(body)) => parse_put_tpm(body),
             (Method::Put, _, None) => method_to_error(Method::Put),
             (Method::Patch, "balloon", Some(body)) => parse_patch_balloon(body, path_tokens.get(1)),
             (Method::Patch, "drives", Some(body)) => parse_patch_drive(body, path_tokens.get(1)),

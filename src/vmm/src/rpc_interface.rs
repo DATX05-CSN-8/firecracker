@@ -23,7 +23,7 @@ use super::{
 };
 use crate::builder::StartMicrovmError;
 use crate::persist::{CreateSnapshotError, RestoreFromSnapshotError, VmInfo};
-use crate::resources::VmmConfig;
+use crate::resources::{VmmConfig, TpmDeviceConfig, TpmConfigError};
 use crate::version_map::VERSION_MAP;
 use crate::vmm_config::balloon::{
     BalloonConfigError, BalloonDeviceConfig, BalloonStats, BalloonUpdateConfig,
@@ -105,6 +105,8 @@ pub enum VmmAction {
     /// `VsockDeviceConfig` as input. This action can only be called before the microVM has
     /// booted.
     SetVsockDevice(VsockDeviceConfig),
+    /// Set TPM device or update the one that already exists. Can only be called before the microVM has started.
+    SetTpmDevice(TpmDeviceConfig),
     /// Launch the microVM. This action can only be called before the microVM has booted.
     StartMicroVm,
     /// Send CTRL+ALT+DEL to the microVM, using the i8042 keyboard function. If an AT-keyboard
@@ -168,6 +170,8 @@ pub enum VmmActionError {
     StartMicrovm(StartMicrovmError),
     /// The action `SetVsockDevice` failed because of bad user input.
     VsockConfig(VsockConfigError),
+    /// The action `SetTpmDevice` failed because of bad user input.
+    TpmConfig(TpmConfigError)
 }
 
 impl Display for VmmActionError {
@@ -203,6 +207,7 @@ impl Display for VmmActionError {
                 StartMicrovm(err) => err.to_string(),
                 // The action `SetVsockDevice` failed because of bad user input.
                 VsockConfig(err) => err.to_string(),
+                TpmConfig(err) => err.to_string()
             }
         )
     }
@@ -430,6 +435,7 @@ impl<'a> PrebootApiController<'a> {
             PutMMDS(value) => self.put_mmds(value),
             SetBalloonDevice(config) => self.set_balloon_device(config),
             SetVsockDevice(config) => self.set_vsock_device(config),
+            SetTpmDevice(config) => self.set_tpm_device(config),
             SetMmdsConfiguration(config) => self.set_mmds_config(config),
             StartMicroVm => self.start_microvm(),
             UpdateVmConfiguration(config) => self.update_vm_config(config),
@@ -510,6 +516,13 @@ impl<'a> PrebootApiController<'a> {
             .set_vsock_device(cfg)
             .map(|()| VmmData::Empty)
             .map_err(VmmActionError::VsockConfig)
+    }
+
+    fn set_tpm_device(&mut self, cfg: TpmDeviceConfig) -> ActionResult {
+        self.vm_resources
+            .set_tpm_device(cfg)
+            .map(|()| VmmData::Empty)
+            .map_err(VmmActionError::TpmConfig)
     }
 
     // On success, this command will end the pre-boot stage and this controller
@@ -669,6 +682,7 @@ impl RuntimeApiController {
             | SetBalloonDevice(_)
             | SetVsockDevice(_)
             | SetMmdsConfiguration(_)
+            | SetTpmDevice(_)
             | StartMicroVm
             | UpdateVmConfiguration(_) => Err(VmmActionError::OperationNotSupportedPostBoot),
         }
@@ -835,6 +849,7 @@ mod tests {
     use seccompiler::BpfThreadMap;
 
     use super::*;
+    use crate::resources::TpmConfigError;
     use crate::vmm_config::balloon::BalloonBuilder;
     use crate::vmm_config::drive::{CacheType, FileEngineType};
     use crate::vmm_config::logger::LoggerLevel;
@@ -881,6 +896,7 @@ mod tests {
         boot_cfg_set: bool,
         block_set: bool,
         vsock_set: bool,
+        tpm_set: bool,
         net_set: bool,
         pub mmds: Option<Arc<Mutex<Mmds>>>,
         pub mmds_size_limit: usize,
@@ -982,6 +998,14 @@ mod tests {
                 ));
             }
             self.vsock_set = true;
+            Ok(())
+        }
+
+        pub fn set_tpm_device(&mut self, _: TpmDeviceConfig) -> Result<(), TpmConfigError> {
+            if self.force_errors {
+                return Err(TpmConfigError::GeneralTpmError);
+            }
+            self.tpm_set = true;
             Ok(())
         }
 
