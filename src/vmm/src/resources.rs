@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::convert::From;
-use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use logger::{info, warn};
+use logger::info;
 use mmds::data_store::{Mmds, MmdsVersion};
 use mmds::ns::MmdsNetworkStack;
 use serde::{Deserialize, Serialize};
@@ -26,8 +25,6 @@ use crate::vmm_config::net::*;
 use crate::vmm_config::vsock::*;
 use crate::vmm_config::tpm::*;
 use crate::vstate::vcpu::VcpuConfig;
-use versionize_derive::Versionize;
-use versionize::{VersionMap, Versionize, VersionizeResult};
 
 type Result<E> = std::result::Result<(), E>;
 
@@ -424,7 +421,7 @@ impl VmResources {
         
         // TODO validate as socket, not as path that ends with .socket
         // Validating parsing tpm as path
-        if !std::path::Path::new(&config.socket).exists() && !config.socket.ends_with(".socket") {
+        if !std::path::Path::new(&config.socket).exists() {
             return Err(TpmConfigError::ParseTpmPathMissing)
         }
         self.tpm.set(config)
@@ -605,6 +602,10 @@ mod tests {
         }
     }
 
+    fn default_tpm() -> TpmBuilder {
+        TpmBuilder::default()
+    }
+
     fn default_vm_resources() -> VmResources {
         VmResources {
             vm_config: VmConfig::default(),
@@ -616,6 +617,7 @@ mod tests {
             mmds: None,
             boot_timer: false,
             mmds_size_limit: HTTP_MAX_PAYLOAD_SIZE,
+            tpm: default_tpm(),
         }
     }
 
