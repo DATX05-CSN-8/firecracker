@@ -1,8 +1,11 @@
 
 use std::fmt;
+use linux_loader::configurator;
 use serde::{Deserialize, Serialize};
 use crate::device_manager::mmio::MMIODeviceManager;
 use devices::virtio::tpm::Tpm;
+
+type MutexTpm = Arc<Mutex<Tpm>>;
 
 /// Errors associated with TPM config errors
 #[derive(Debug, derive_more::From)]
@@ -30,7 +33,7 @@ impl fmt::Display for TpmConfigError {
 
 type Result<T> = std::result::Result<T, TpmConfigError>;
 
-/// Used for describing the TPM Configuration
+// Used for describing the TPM Configuration
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TpmDeviceConfig {
@@ -41,18 +44,19 @@ pub struct TpmDeviceConfig {
 /// A builder of Tpm with Unix backend from 'TpmDeviceConfig'.
 #[derive(Default)]
 pub struct TpmBuilder {
-    inner: Option<TpmDeviceConfig>,
+    inner: Option<MutexTpm>,
 }
 
 impl TpmBuilder {
-    pub fn set(&mut self, tpm_path: TpmDeviceConfig) -> Result<()> {
+    
+    /// Inserts a Tpm device in the store.
+    pub fn set(&mut self, config: TpmDeviceConfig) -> Result<()> {
 
-        // Create TPM Device
-        let tpm = Tpm::new(tpm_path.socket.clone()).map_err(|err| TpmConfigError::CreateTpmDevice(err.to_string()))?;
-
-        // Add TPM Device to mmio
-        self.inner = Some(TpmDeviceConfig{ socket: MMIODeviceManager::register_tpm(&mut MMIODeviceManager, tpm)}); //TODO AAA suggested the &mut mmio::MM..
+        self.inner = Some(Arc::new(Mutex::new(Tpm::new(config.socket)?)));
         Ok(())
     }
 
+    pub fn get(&self) -> Option<&MutexTpm> {
+        self.inner.as_ref()
+    }
 }
