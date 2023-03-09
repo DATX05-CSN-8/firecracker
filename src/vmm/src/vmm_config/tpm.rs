@@ -22,7 +22,7 @@ pub enum TpmConfigError {
 impl fmt::Display for TpmConfigError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::TpmConfigError::*;
-        match *self {
+        match self {
             GeneralTpmError => {
                 write!(f, "General TPM Error!")
             }, // TODO remove
@@ -34,7 +34,7 @@ impl fmt::Display for TpmConfigError {
 
 type Result<T> = std::result::Result<T, TpmConfigError>;
 
-// Used for describing the TPM Configuration
+/// Used for describing the TPM Configuration
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TpmDeviceConfig {
@@ -56,7 +56,7 @@ impl TpmBuilder {
         self.inner = Some(Arc::new(Mutex::new(tpm)));
         Ok(())
     }
-
+    /// Get the inner TPM device
     pub fn get(&self) -> Option<&MutexTpm> {
         self.inner.as_ref()
     }

@@ -302,15 +302,15 @@ impl MMIODeviceManager {
     pub fn register_tpm(&mut self, tpm: Arc<Mutex<Tpm>> ) -> Result<()> {
 
 
-        let mut start;
-        let mut len;
+        let start;
+        let len;
         #[cfg(target_arch = "aarch64")] {
-            let start = arch::aarch64::layout::TPM_START;
-            let len = arch::aarch64::layout::TPM_SIZE;
+            start = arch::aarch64::layout::TPM_START;
+            len = arch::aarch64::layout::TPM_SIZE;
         }
         #[cfg(target_arch = "x86_64")] {
-            let start = arch::x86_64::layout::TPM_START; // TODO AAA .0
-            let len = arch::x86_64::layout::TPM_SIZE;
+            start = arch::x86_64::layout::TPM_START; // TODO AAA .0
+            len = arch::x86_64::layout::TPM_SIZE;
         }
         // let device_info = MMIODeviceInfo {
         //     addr: start,

@@ -1,5 +1,5 @@
 use logger::{METRICS, IncMetric};
-use vmm::resources::TpmDeviceConfig;
+use vmm::vmm_config::tpm::TpmDeviceConfig;
 use crate::request::Body;
 use crate::parsed_request::{Error, ParsedRequest};
 use super::super::VmmAction;
