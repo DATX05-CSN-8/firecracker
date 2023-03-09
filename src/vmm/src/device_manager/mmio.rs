@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::{fmt, io};
-
 #[cfg(target_arch = "aarch64")]
 use arch::aarch64::DeviceInfoForFDT;
 use arch::DeviceType;
@@ -296,6 +295,46 @@ impl MMIODeviceManager {
 
         let identifier = (DeviceType::BootTimer, DeviceType::BootTimer.to_string());
         self.register_mmio_device(identifier, device_info, Arc::new(Mutex::new(device)))
+    }
+
+    /// Register a tpm device.
+    pub fn register_tpm(&mut self, tpm: devices::virtio::tpm::Tpm ) -> Result<()> {
+        // Attach a new tpm device.
+        let device = Arc::new(Mutex::new(tpm));
+
+        let mut start;
+        let mut len;
+        #[cfg(target_arch = "aarch64")] {
+            let start = arch::aarch64::layout::TPM_START;
+            let len = arch::aarch64::layout::TPM_SIZE;
+        }
+        #[cfg(target_arch = "x86_64")] {
+            let start = arch::x86_64::layout::TPM_START; // TODO AAA .0
+            let len = arch::x86_64::layout::TPM_SIZE;
+        }
+        // let device_info = MMIODeviceInfo {
+        //     addr: start,
+        //     len: len,
+        //     irq: AAA
+        // };
+        // Allocate resources for a new device to be added
+        let irqs = (0..0)
+            .map(|_| self.irq_allocator.allocate_id())
+            .collect::<vm_allocator::Result<_>>()
+            .map_err(Error::AllocatorError)?;
+
+        let device_info = MMIODeviceInfo {
+            addr: self
+                .address_allocator
+                .allocate(len, start, AllocPolicy::FirstMatch)
+                .map_err(Error::AllocatorError)?
+                .start(),
+            len: MMIO_LEN,
+            irqs,
+        };
+        
+        let identifier = (DeviceType::Tpm, DeviceType::Tpm.to_string());
+        self.register_mmio_device(identifier, device_info, device)
     }
 
     /// Gets the information of the devices registered up to some point in time.

@@ -65,8 +65,7 @@ pub enum StartMicrovmError {
     CreateNetDevice(devices::virtio::net::Error),
     /// Failed to create a `RateLimiter` object.
     CreateRateLimiter(io::Error),
-    /// Memory regions are overlapping or mmap fails.
-    GuestMemoryMmap(vm_memory::Error),
+    /// Memory regions are overlapping or mmap fails.    GuestMemoryMmap(vm_memory::Error),
     /// Cannot load initrd due to an invalid memory configuration.
     InitrdLoad,
     /// Cannot load initrd due to an invalid image.

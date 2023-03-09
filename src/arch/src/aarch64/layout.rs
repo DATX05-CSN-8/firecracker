@@ -74,3 +74,9 @@ pub const IRQ_BASE: u32 = 32;
 
 /// Below this address will reside the GIC, above this address will reside the MMIO devices.
 pub const MAPPED_IO_START: u64 = 1 << 30; // 1 GB
+
+/// TPM Address Range
+/// This Address range is specific to CRB Interface
+pub const TPM_START: u64 = 0xfed4_0000;
+/// Size of TPM 
+pub const TPM_SIZE: u64 = 0x1000;

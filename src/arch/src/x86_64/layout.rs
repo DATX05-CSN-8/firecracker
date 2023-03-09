@@ -29,3 +29,9 @@ pub const KVM_TSS_ADDRESS: u64 = 0xfffb_d000;
 
 /// The 'zero page', a.k.a linux kernel bootparams.
 pub const ZERO_PAGE_START: u64 = 0x7000;
+
+/// TPM Address Range
+/// This Address range is specific to CRB Interface
+pub const TPM_START: u64 = 0xfed4_0000;
+/// Size of TPM
+pub const TPM_SIZE: u64 = 0x1000;

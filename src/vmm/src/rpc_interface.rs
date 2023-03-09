@@ -23,7 +23,7 @@ use super::{
 };
 use crate::builder::StartMicrovmError;
 use crate::persist::{CreateSnapshotError, RestoreFromSnapshotError, VmInfo};
-use crate::resources::{VmmConfig, TpmDeviceConfig, TpmConfigError};
+use crate::resources::{VmmConfig};
 use crate::version_map::VERSION_MAP;
 use crate::vmm_config::balloon::{
     BalloonConfigError, BalloonDeviceConfig, BalloonStats, BalloonUpdateConfig,
@@ -42,6 +42,7 @@ use crate::vmm_config::net::{
 use crate::vmm_config::snapshot::{CreateSnapshotParams, LoadSnapshotParams, SnapshotType};
 use crate::vmm_config::vsock::{VsockConfigError, VsockDeviceConfig};
 use crate::vmm_config::{self, RateLimiterUpdate};
+use crate::vmm_config::tpm::{TpmDeviceConfig, TpmConfigError};
 use crate::{EventManager, FcExitCode};
 
 /// This enum represents the public interface of the VMM. Each action contains various
@@ -849,7 +850,7 @@ mod tests {
     use seccompiler::BpfThreadMap;
 
     use super::*;
-    use crate::resources::TpmConfigError;
+    use crate::vmm_config::tpm::TpmConfigError;
     use crate::vmm_config::balloon::BalloonBuilder;
     use crate::vmm_config::drive::{CacheType, FileEngineType};
     use crate::vmm_config::logger::LoggerLevel;
@@ -1003,7 +1004,7 @@ mod tests {
 
         pub fn set_tpm_device(&mut self, _: TpmDeviceConfig) -> Result<(), TpmConfigError> {
             if self.force_errors {
-                return Err(TpmConfigError::GeneralTpmError);
+                return Err(TpmConfigError::CreateTpmDevice);
             }
             self.tpm_set = true;
             Ok(())

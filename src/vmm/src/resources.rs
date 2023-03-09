@@ -24,6 +24,7 @@ use crate::vmm_config::metrics::{init_metrics, MetricsConfig, MetricsConfigError
 use crate::vmm_config::mmds::{MmdsConfig, MmdsConfigError};
 use crate::vmm_config::net::*;
 use crate::vmm_config::vsock::*;
+use crate::vmm_config::tpm::*;
 use crate::vstate::vcpu::VcpuConfig;
 use versionize_derive::Versionize;
 use versionize::{VersionMap, Versionize, VersionizeResult};
@@ -78,32 +79,6 @@ impl std::fmt::Display for Error {
     }
 }
 
-// TODO move to its own file
-/// Used for describing the TPM Configuration
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Versionize)]
-#[serde(deny_unknown_fields)]
-pub struct TpmDeviceConfig {
-    /// Path to the socket to be used
-    pub socket: String
-}
-
-/// Errors associated with TPM config errors
-#[derive(Debug, derive_more::From)]
-pub enum TpmConfigError {
-    /// General TPM config error, TODO change
-    GeneralTpmError
-}
-
-impl fmt::Display for TpmConfigError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::TpmConfigError::*;
-        match *self {
-            GeneralTpmError => {
-                write!(f, "General TPM Error!")
-            }
-        }
-    }
-}
 /// Used for configuring a vmm from one single json passed to the Firecracker process.
 #[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct VmmConfig {
@@ -153,6 +128,8 @@ pub struct VmResources {
     pub mmds_size_limit: usize,
     /// Whether or not to load boot timer device.
     pub boot_timer: bool,
+    /// The tpm device
+    pub tpm: TpmBuilder,
 }
 
 impl VmResources {
@@ -443,10 +420,14 @@ impl VmResources {
     }
 
     /// Sets a tpm device to be attached when the VM starts.
-    pub fn set_tpm_device(&mut self, _config: TpmDeviceConfig) -> Result<TpmConfigError> {
-        // TODO insert device here...
-        warn!("Inserting TPM device now...");
-        Ok(())
+    pub fn set_tpm_device(&mut self, config: TpmDeviceConfig) -> Result<TpmConfigError> {
+        
+        // TODO validate as socket, not as path that ends with .socket
+        // Validating parsing tpm as path
+        if !std::path::Path::new(&config.socket).exists() && !config.socket.ends_with(".socket") {
+            return Err(TpmConfigError::ParseTpmPathMissing)
+        }
+        self.tpm.set(config)
     }
 
     /// Setter for mmds config.
@@ -1612,18 +1593,6 @@ mod tests {
         assert_eq!(
             format!("{}", Error::VmConfig(VmConfigError::InvalidMemorySize)),
             format!("VM config error: {}", VmConfigError::InvalidMemorySize)
-        );
-        assert_eq!(
-            format!(
-                "{}",
-                Error::VsockDevice(VsockConfigError::CreateVsockDevice(
-                    VsockError::BufDescTooSmall
-                ))
-            ),
-            format!(
-                "Vsock device error: {}",
-                VsockConfigError::CreateVsockDevice(VsockError::BufDescTooSmall)
-            )
         );
     }
 }
