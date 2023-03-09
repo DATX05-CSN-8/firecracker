@@ -377,7 +377,7 @@ pub fn build_microvm_for_boot(
         attach_unixsock_vsock_device(&mut vmm, &mut boot_cmdline, unix_vsock, event_manager)?;
     }
     if let Some(tpm) = vm_resources.tpm.get() {
-        attach_tpm_device(&mut vmm, &mut boot_cmdline, unix_vsock, event_manager)?;
+        attach_tpm_device(&mut vmm, tpm)?;
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -1005,15 +1005,10 @@ fn attach_balloon_device(
 // TODO AAA
 fn attach_tpm_device(
     vmm: &mut Vmm,
-    cmdline: &mut LoaderKernelCmdline,
     tpm: &Arc<Mutex<Tpm>>,
-    event_manager: &mut EventManager,
 ) -> std::result::Result<(), StartMicrovmError> {
-
-    let id = String::from(tpm.lock().expect("Poisoned lock").id());
-    // The device mutex mustn't be locked here otherwise it will deadlock.
-    attach_virtio_device(event_manager, vmm, id, tpm.clone(), cmdline)
-
+    let tpm_ref = tpm.lock().expect("Poisoned lock");
+    vmm.mmio_device_manager.register_tpm(tpm_ref);
 }
 // Adds `O_NONBLOCK` to the stdout flags.
 pub(crate) fn set_stdout_nonblocking() {
