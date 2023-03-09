@@ -497,7 +497,7 @@ fn build_microvm_from_json(
                 vmm::FcExitCode::BadConfiguration
             })?;
     vm_resources.boot_timer = boot_timer_enabled;
-    let vmm = vmm::builder::(
+    let vmm = vmm::builder::build_microvm_for_boot(
         &instance_info,
         &vm_resources,
         event_manager,

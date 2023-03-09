@@ -18,6 +18,7 @@ use devices::legacy::{
     EventFdTrigger, ReadableFd, SerialDevice, SerialEventsWrapper, SerialWrapper,
 };
 use devices::virtio::{Balloon, Block, MmioTransport, Net, VirtioDevice, Vsock, VsockUnixBackend};
+use devices::virtio::tpm::Tpm;
 use event_manager::{MutEventSubscriber, SubscriberOps};
 use libc::EFD_NONBLOCK;
 use linux_loader::cmdline::Cmdline as LoaderKernelCmdline;
@@ -65,7 +66,8 @@ pub enum StartMicrovmError {
     CreateNetDevice(devices::virtio::net::Error),
     /// Failed to create a `RateLimiter` object.
     CreateRateLimiter(io::Error),
-    /// Memory regions are overlapping or mmap fails.    GuestMemoryMmap(vm_memory::Error),
+    /// Memory regions are overlapping or mmap fails.    
+    GuestMemoryMmap(vm_memory::Error),
     /// Cannot load initrd due to an invalid memory configuration.
     InitrdLoad,
     /// Cannot load initrd due to an invalid image.
@@ -374,6 +376,9 @@ pub fn build_microvm_for_boot(
     )?;
     if let Some(unix_vsock) = vm_resources.vsock.get() {
         attach_unixsock_vsock_device(&mut vmm, &mut boot_cmdline, unix_vsock, event_manager)?;
+    }
+    if let Some(tpm) = vm_resources.tpm.get() {
+        attach_tpm_device(&mut vmm, tpm)?;
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -999,6 +1004,17 @@ fn attach_balloon_device(
     attach_virtio_device(event_manager, vmm, id, balloon.clone(), cmdline)
 }
 
+fn attach_tpm_device(
+    vmm: &mut Vmm,
+    tpm: &Arc<Mutex<Tpm>>,
+) -> std::result::Result<(), StartMicrovmError> {
+    use self::StartMicrovmError::*;
+    // TODO handle error
+    vmm.mmio_device_manager.register_tpm(tpm.clone())
+        .map_err(RegisterMmioDevice)?;
+
+    Ok(())
+}
 // Adds `O_NONBLOCK` to the stdout flags.
 pub(crate) fn set_stdout_nonblocking() {
     // SAFETY: Call is safe since parameters are valid.

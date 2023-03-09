@@ -1,8 +1,12 @@
 
 use std::fmt;
+use std::sync::{Arc, Mutex};
+use linux_loader::configurator;
 use serde::{Deserialize, Serialize};
 use crate::device_manager::mmio::MMIODeviceManager;
 use devices::virtio::tpm::Tpm;
+
+type MutexTpm = Arc<Mutex<Tpm>>;
 
 /// Errors associated with TPM config errors
 #[derive(Debug, derive_more::From)]
@@ -18,7 +22,7 @@ pub enum TpmConfigError {
 impl fmt::Display for TpmConfigError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::TpmConfigError::*;
-        match *self {
+        match self {
             GeneralTpmError => {
                 write!(f, "General TPM Error!")
             }, // TODO remove
@@ -41,18 +45,19 @@ pub struct TpmDeviceConfig {
 /// A builder of Tpm with Unix backend from 'TpmDeviceConfig'.
 #[derive(Default)]
 pub struct TpmBuilder {
-    inner: Option<TpmDeviceConfig>,
+    inner: Option<MutexTpm>,
 }
 
 impl TpmBuilder {
-    pub fn set(&mut self, tpm_path: TpmDeviceConfig) -> Result<()> {
-
-        // Create TPM Device
-        let tpm = Tpm::new(tpm_path.socket.clone()).map_err(|err| TpmConfigError::CreateTpmDevice(err.to_string()))?;
-
-        // Add TPM Device to mmio
-        self.inner = Some(TpmDeviceConfig{ socket: MMIODeviceManager::register_tpm(&mut MMIODeviceManager, tpm)}); //TODO AAA suggested the &mut mmio::MM..
+    
+    /// Inserts a Tpm device in the store.
+    pub fn set(&mut self, config: TpmDeviceConfig) -> Result<()> {
+        let tpm = Tpm::new(config.socket).expect("Error creating TPM device");
+        self.inner = Some(Arc::new(Mutex::new(tpm)));
         Ok(())
     }
-
+    /// Get the inner TPM device
+    pub fn get(&self) -> Option<&MutexTpm> {
+        self.inner.as_ref()
+    }
 }
