@@ -52,8 +52,8 @@ impl TpmBuilder {
     
     /// Inserts a Tpm device in the store.
     pub fn set(&mut self, config: TpmDeviceConfig) -> Result<()> {
-
-        self.inner = Some(Arc::new(Mutex::new(Tpm::new(config.socket)?)));
+        let tpm = Tpm::new(config.socket).expect("Error creating TPM device");
+        self.inner = Some(Arc::new(Mutex::new(tpm)));
         Ok(())
     }
 

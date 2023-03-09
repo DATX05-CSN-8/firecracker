@@ -21,6 +21,7 @@ use devices::virtio::{
     Balloon, Block, MmioTransport, Net, VirtioDevice, TYPE_BALLOON, TYPE_BLOCK, TYPE_NET,
     TYPE_VSOCK,
 };
+use devices::virtio::tpm::Tpm;
 use devices::BusDevice;
 use kvm_ioctls::{IoEventAddress, VmFd};
 use linux_loader::cmdline as kernel_cmdline;
@@ -298,9 +299,8 @@ impl MMIODeviceManager {
     }
 
     /// Register a tpm device.
-    pub fn register_tpm(&mut self, tpm: devices::virtio::tpm::Tpm ) -> Result<()> {
-        // Attach a new tpm device.
-        let device = Arc::new(Mutex::new(tpm));
+    pub fn register_tpm(&mut self, tpm: Arc<Mutex<Tpm>> ) -> Result<()> {
+
 
         let mut start;
         let mut len;
@@ -334,7 +334,7 @@ impl MMIODeviceManager {
         };
         
         let identifier = (DeviceType::Tpm, DeviceType::Tpm.to_string());
-        self.register_mmio_device(identifier, device_info, device)
+        self.register_mmio_device(identifier, device_info, tpm)
     }
 
     /// Gets the information of the devices registered up to some point in time.

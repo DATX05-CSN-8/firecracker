@@ -1003,13 +1003,17 @@ fn attach_balloon_device(
     // The device mutex mustn't be locked here otherwise it will deadlock.
     attach_virtio_device(event_manager, vmm, id, balloon.clone(), cmdline)
 }
-// TODO AAA
+
 fn attach_tpm_device(
     vmm: &mut Vmm,
     tpm: &Arc<Mutex<Tpm>>,
 ) -> std::result::Result<(), StartMicrovmError> {
-    let tpm_ref = tpm.lock().expect("Poisoned lock");
-    vmm.mmio_device_manager.register_tpm(tpm_ref);
+    use self::StartMicrovmError::*;
+    // TODO handle error
+    vmm.mmio_device_manager.register_tpm(tpm.clone())
+        .map_err(RegisterMmioDevice)?;
+
+    Ok(())
 }
 // Adds `O_NONBLOCK` to the stdout flags.
 pub(crate) fn set_stdout_nonblocking() {
