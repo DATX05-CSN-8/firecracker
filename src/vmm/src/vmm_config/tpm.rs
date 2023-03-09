@@ -1,9 +1,7 @@
 
 use std::fmt;
 use std::sync::{Arc, Mutex};
-use linux_loader::configurator;
 use serde::{Deserialize, Serialize};
-use crate::device_manager::mmio::MMIODeviceManager;
 use devices::virtio::tpm::Tpm;
 
 type MutexTpm = Arc<Mutex<Tpm>>;
