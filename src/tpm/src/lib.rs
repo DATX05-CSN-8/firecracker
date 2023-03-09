@@ -106,7 +106,7 @@ impl Ptm for PtmResult {
         let len = buf.len();
         if len != expected_len {
             return Err(TpmLibError::ConvertToPtm(
-                String::from("PtmRes buffer is of incorrect length. Got {len} expected {expected_len}.")
+                String::from(format!("PtmRes buffer is of incorrect length. Got {len} expected {expected_len}."))
             ));
         }
 
@@ -143,7 +143,7 @@ impl Ptm for PtmCap {
         let len = buf.len();
         if len != expected_len {
             return Err(TpmLibError::ConvertToPtm(
-                String::from("Response for GetCapability cmd is of incorrect length. Got {len} expected {expected_len}.")
+                String::from(format!("Response for GetCapability cmd is of incorrect length. Got {len} expected {expected_len}."))
             ));
         }
         *self = u64::from_be_bytes(buf[..].try_into().unwrap());
@@ -204,7 +204,7 @@ impl Ptm for PtmEst {
         let len = buf.len();
         if len != expected_len {
             return Err(TpmLibError::ConvertToPtm(
-                String::from("Response for GetTpmEstablished cmd is of incorrect length. Got {len} expected {expected_len}.")
+                String::from(format!("Response for GetTpmEstablished cmd is of incorrect length. Got {len} expected {expected_len}."))
             ));
         }
         self.set_result_code(u32::from_be_bytes(buf[..4].try_into().unwrap()));
@@ -266,7 +266,7 @@ impl Ptm for PtmInit {
         let len = buf.len();
         if len != expected_len {
             return Err(TpmLibError::ConvertToPtm(
-                String::from("Response for Init cmd is of incorrect length. Got {len} expected {expected_len}.")
+                String::from(format!("Response for Init cmd is of incorrect length. Got {len} expected {expected_len}."))
             ));
         }
         self.set_member_type(MemberType::Response);
@@ -355,7 +355,7 @@ impl Ptm for PtmSetBufferSize {
         let len = buf.len();
         if len != expected_len {
             return Err(TpmLibError::ConvertToPtm(
-                String::from("Response for CmdSetBufferSize cmd is of incorrect length. Got {len} expected {expected_len}.")
+                String::from(format!("Response for CmdSetBufferSize cmd is of incorrect length. Got {len} expected {expected_len}."))
             ));
         }
         self.set_member_type(MemberType::Response);
