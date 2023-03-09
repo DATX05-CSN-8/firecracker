@@ -18,6 +18,7 @@ use devices::legacy::{
     EventFdTrigger, ReadableFd, SerialDevice, SerialEventsWrapper, SerialWrapper,
 };
 use devices::virtio::{Balloon, Block, MmioTransport, Net, VirtioDevice, Vsock, VsockUnixBackend};
+use devices::virtio::tpm::Tpm;
 use event_manager::{MutEventSubscriber, SubscriberOps};
 use libc::EFD_NONBLOCK;
 use linux_loader::cmdline::Cmdline as LoaderKernelCmdline;
