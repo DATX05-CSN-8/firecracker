@@ -20,7 +20,7 @@ pub mod aarch64;
 pub use aarch64::{
     arch_memory_regions, configure_system, get_kernel_start, initrd_load_addr,
     layout::CMDLINE_MAX_SIZE, layout::IRQ_BASE, layout::IRQ_MAX, regs, Error, MMIO_MEM_SIZE,
-    MMIO_MEM_START,
+    MMIO_MEM_START, layout::TPM_START
 };
 
 /// Module for x86_64 related functionality.
@@ -31,7 +31,7 @@ pub mod x86_64;
 pub use crate::x86_64::{
     arch_memory_regions, configure_system, get_kernel_start, initrd_load_addr,
     layout::CMDLINE_MAX_SIZE, layout::IRQ_BASE, layout::IRQ_MAX, Error, MMIO_MEM_SIZE,
-    MMIO_MEM_START,
+    MMIO_MEM_START, layout::TPM_START
 };
 
 /// Type for returning public functions outcome.
