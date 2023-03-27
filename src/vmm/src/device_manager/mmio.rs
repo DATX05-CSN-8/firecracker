@@ -12,6 +12,7 @@ use std::{fmt, io};
 use arch::aarch64::DeviceInfoForFDT;
 use arch::DeviceType;
 use arch::DeviceType::Virtio;
+use arch::TPM_START;
 #[cfg(target_arch = "aarch64")]
 use devices::legacy::RTCDevice;
 #[cfg(target_arch = "aarch64")]
@@ -308,7 +309,7 @@ impl MMIODeviceManager {
         let device_info = MMIODeviceInfo {
             addr: self
                 .address_allocator
-                .allocate(len, start, AllocPolicy::FirstMatch)
+                .allocate(MMIO_LEN, MMIO_LEN, AllocPolicy::ExactMatch(TPM_START))
                 .map_err(Error::AllocatorError)?
                 .start(),
             len: MMIO_LEN,
