@@ -300,24 +300,6 @@ impl MMIODeviceManager {
 
     /// Register a tpm device.
     pub fn register_tpm(&mut self, tpm: Arc<Mutex<Tpm>> ) -> Result<()> {
-
-
-        let start;
-        let len;
-        #[cfg(target_arch = "aarch64")] {
-            start = arch::aarch64::layout::TPM_START;
-            len = arch::aarch64::layout::TPM_SIZE;
-        }
-        #[cfg(target_arch = "x86_64")] {
-            start = arch::x86_64::layout::TPM_START; // TODO AAA .0
-            len = arch::x86_64::layout::TPM_SIZE;
-        }
-        // let device_info = MMIODeviceInfo {
-        //     addr: start,
-        //     len: len,
-        //     irq: AAA
-        // };
-        // Allocate resources for a new device to be added
         let irqs = (0..0)
             .map(|_| self.irq_allocator.allocate_id())
             .collect::<vm_allocator::Result<_>>()
