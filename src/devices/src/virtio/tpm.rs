@@ -381,7 +381,7 @@ impl BusDevice for Tpm {
     }
 
     fn write(&mut self, offset: u64, data: &[u8]) {
-        debug!(
+        warn!(
             "MMIO Write: offset {:#X} len {:?} input data {:02X?}",
             offset,
             data.len(),

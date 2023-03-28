@@ -378,7 +378,7 @@ pub fn build_microvm_for_boot(
         attach_unixsock_vsock_device(&mut vmm, &mut boot_cmdline, unix_vsock, event_manager)?;
     }
     if let Some(tpm) = vm_resources.tpm.get() {
-        attach_tpm_device(&mut vmm, tpm)?;
+        attach_tpm_device(&mut vmm, tpm, event_manager)?;
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -1007,6 +1007,7 @@ fn attach_balloon_device(
 fn attach_tpm_device(
     vmm: &mut Vmm,
     tpm: &Arc<Mutex<Tpm>>,
+    event_manager: &mut EventManager
 ) -> std::result::Result<(), StartMicrovmError> {
     use self::StartMicrovmError::*;
     // TODO handle error

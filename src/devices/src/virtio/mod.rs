@@ -13,6 +13,7 @@ pub mod balloon;
 pub mod block;
 pub mod device;
 pub mod tpm;
+pub mod tpm_tis;
 mod mmio;
 pub mod net;
 pub mod persist;
