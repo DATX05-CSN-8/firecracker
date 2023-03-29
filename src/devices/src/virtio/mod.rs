@@ -51,6 +51,7 @@ mod device_status {
 pub const TYPE_NET: u32 = 1;
 pub const TYPE_BLOCK: u32 = 2;
 pub const TYPE_BALLOON: u32 = 5;
+pub const TYPE_TPM: u32 = 62;
 
 /// Offset from the base MMIO address of a virtio device used by the guest to notify the device of
 /// queue events.
