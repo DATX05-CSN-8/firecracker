@@ -11,6 +11,7 @@ use logger::warn;
 use virtio_gen::virtio_blk::VIRTIO_F_VERSION_1;
 use virtio_gen::virtio_ring::VIRTIO_RING_F_EVENT_IDX;
 use vm_memory::Bytes;
+use super::TPM_DEV_ID;
 use super::TpmError as Error;
 use utils::eventfd::EventFd;
 use vm_memory::GuestMemoryMmap;
@@ -276,6 +277,10 @@ impl Tpm {
         self.process_queue(0);
     }
 
+    pub fn id(&self) -> &str {
+        TPM_DEV_ID
+    }
+
     fn process_queue(&mut self, queue_index: usize) {
         let mem = self.device_state.mem().unwrap();
 
@@ -322,6 +327,9 @@ impl Tpm {
             }
         }
     }
+
+    
+
 }
 
 impl VirtioDevice for Tpm {

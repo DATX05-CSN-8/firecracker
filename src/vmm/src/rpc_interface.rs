@@ -1004,7 +1004,7 @@ mod tests {
 
         pub fn set_tpm_device(&mut self, _: TpmDeviceConfig) -> Result<(), TpmConfigError> {
             if self.force_errors {
-                return Err(TpmConfigError::CreateTpmDevice);
+                return Err(TpmConfigError::CreateTpmEmulator);
             }
             self.tpm_set = true;
             Ok(())

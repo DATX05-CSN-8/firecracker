@@ -2,29 +2,27 @@
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
-use devices::virtio::tpm::Tpm;
+use devices::virtio::tpm::{Tpm, TpmError};
+use tpm::emulator::{Emulator, TpmEmulatorError};
 
 type MutexTpm = Arc<Mutex<Tpm>>;
 
 /// Errors associated with TPM config errors
 #[derive(Debug, derive_more::From)]
 pub enum TpmConfigError {
-    /// General TPM config error, TODO change // todo ta bort helt kanske AAA
-    GeneralTpmError,
+    /// General TPM config error, TODO change 
+    CreateTpmVirtioDevice(TpmError),
     /// Cannot create tpm device
-    CreateTpmDevice(String), // TODO AAA kolla vsock.rs VsockError
+    CreateTpmEmulator(TpmEmulatorError), // TODO AAA kolla vsock.rs VsockError
     /// Missing path for TPM device
     ParseTpmPathMissing,
 }
 
 impl fmt::Display for TpmConfigError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::TpmConfigError::*;
         match self {
-            GeneralTpmError => {
-                write!(f, "General TPM Error!")
-            }, // TODO remove
-            CreateTpmDevice(err) => write!(f, "Failed to create TPM Device: {:?}", err),
+            TpmConfigError::CreateTpmVirtioDevice(err) => write!(f, "Failed to create TPM virtio device: {:?}", err),
+            TpmConfigError::CreateTpmEmulator(err) => write!(f, "Failed to create TPM Emulator: {:?}", err),
             TpmConfigError::ParseTpmPathMissing => write!(f, "Error parsing --tpm: path missing"),
         }
     }
@@ -50,10 +48,22 @@ impl TpmBuilder {
     
     /// Inserts a Tpm device in the store.
     pub fn set(&mut self, config: TpmDeviceConfig) -> Result<()> {
-        let tpm = Tpm::new(config.socket).expect("Error creating TPM device");
-        self.inner = Some(Arc::new(Mutex::new(tpm)));
-        Ok(())
+        // TODO verify path to socket
+        let emulator = match Emulator::new(config.socket) {
+            Ok(emu) => emu,
+            Err(err) => {
+                return Err(TpmConfigError::CreateTpmEmulator(err))
+            }
+        };
+        match Tpm::new(Box::new(emulator)) {
+            Ok(tpm) => {
+                self.inner = Some(Arc::new(Mutex::new(tpm)));
+                Ok(())
+            },
+            Err(err) => Err(TpmConfigError::CreateTpmVirtioDevice(err))
+        }
     }
+    
     /// Get the inner TPM device
     pub fn get(&self) -> Option<&MutexTpm> {
         self.inner.as_ref()

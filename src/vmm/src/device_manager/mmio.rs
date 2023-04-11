@@ -12,7 +12,6 @@ use std::{fmt, io};
 use arch::aarch64::DeviceInfoForFDT;
 use arch::DeviceType;
 use arch::DeviceType::Virtio;
-use arch::TPM_START;
 #[cfg(target_arch = "aarch64")]
 use devices::legacy::RTCDevice;
 #[cfg(target_arch = "aarch64")]
@@ -296,27 +295,6 @@ impl MMIODeviceManager {
 
         let identifier = (DeviceType::BootTimer, DeviceType::BootTimer.to_string());
         self.register_mmio_device(identifier, device_info, Arc::new(Mutex::new(device)))
-    }
-
-    /// Register a tpm device.
-    pub fn register_tpm(&mut self, tpm: Arc<Mutex<Tpm>> ) -> Result<()> {
-        let irqs = (0..0)
-            .map(|_| self.irq_allocator.allocate_id())
-            .collect::<vm_allocator::Result<_>>()
-            .map_err(Error::AllocatorError)?;
-
-        let device_info = MMIODeviceInfo {
-            addr: self
-                .address_allocator
-                .allocate(MMIO_LEN, MMIO_LEN, AllocPolicy::ExactMatch(TPM_START))
-                .map_err(Error::AllocatorError)?
-                .start(),
-            len: MMIO_LEN,
-            irqs,
-        };
-        
-        let identifier = (DeviceType::Tpm, DeviceType::Tpm.to_string());
-        self.register_mmio_device(identifier, device_info, tpm)
     }
 
     /// Gets the information of the devices registered up to some point in time.

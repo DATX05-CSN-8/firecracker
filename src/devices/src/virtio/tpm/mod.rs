@@ -17,6 +17,8 @@ pub use self::event_handler::*;
 // There is no hard requirement that the value is the same but it makes sense.
 const TPM_BUFSIZE: usize = 4096;
 
+pub const TPM_DEV_ID: &str = "vtpm";
+
 #[derive(Error, Debug)]
 pub enum TpmError {
     #[error("vtpm response buffer is too small: {size} < {required} bytes")]
