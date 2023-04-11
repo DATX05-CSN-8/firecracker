@@ -315,7 +315,7 @@ impl Emulator {
     }
 
     /// Function to write to data socket and read the response from it
-    pub fn deliver_request(&mut self, cmd: &mut BackendCmd) -> Result<()> {
+    pub fn deliver_request(&mut self, cmd: &mut BackendCmd) -> Result<usize> {
         // SAFETY: type "sockaddr_storage" is valid with an all-zero byte-pattern value
         let mut addr: sockaddr_storage = unsafe { mem::zeroed() };
         let mut len = mem::size_of::<sockaddr_storage>() as socklen_t;
@@ -380,7 +380,7 @@ impl Emulator {
             )));
         }
 
-        Ok(())
+        Ok(output_len)
     }
 
     pub fn cancel_cmd(&mut self) -> Result<()> {

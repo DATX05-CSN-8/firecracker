@@ -2,34 +2,28 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::io;
-use std::io::Read;
-use std::io::Write;
-use std::ops::BitOrAssign;
+use std::cmp::min;
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
-use base::error;
-use base::Event;
-use base::EventToken;
-use base::RawDescriptor;
-use base::WaitContext;
-use base::WorkerThread;
 use logger::error;
-use thiserror::Error;
+use logger::warn;
+use virtio_gen::virtio_blk::VIRTIO_F_VERSION_1;
+use virtio_gen::virtio_ring::VIRTIO_RING_F_EVENT_IDX;
+use vm_memory::Bytes;
+use super::TpmError as Error;
 use utils::eventfd::EventFd;
-use vm_memory::GuestMemory;
+use vm_memory::GuestMemoryMmap;
 
-use super::DescriptorChain;
-use super::DescriptorError;
-use super::DeviceState;
-use super::Interrupt;
-use super::IrqTrigger;
-use super::Queue;
-use super::Reader;
-use super::SignalableInterrupt;
-use super::TYPE_TPM;
-use super::VirtioDevice;
-use super::Writer;
-use crate::Suspendable;
+use crate::virtio::ActivateResult;
+use crate::virtio::DescriptorChain;
+use crate::virtio::DeviceState;
+use crate::virtio::IrqTrigger;
+use crate::virtio::Queue;
+use crate::virtio::TYPE_TPM;
+use crate::virtio::VirtioDevice;
+use crate::virtio::tpm::TPM_BUFSIZE;
+
 
 // A single queue of size 2. The guest kernel driver will enqueue a single
 // descriptor chain containing one command buffer and one response buffer at a
@@ -37,11 +31,10 @@ use crate::Suspendable;
 const QUEUE_SIZE: u16 = 2;
 const QUEUE_SIZES: &[u16] = &[QUEUE_SIZE];
 
-// Maximum command or response message size permitted by this device
-// implementation. Named to match the equivalent constant in Linux's tpm.h.
-// There is no hard requirement that the value is the same but it makes sense.
-const TPM_BUFSIZE: usize = 4096;
-
+pub trait TpmBackend: Send {
+    fn execute_command(&mut self, command: &[u8]) -> Vec<u8>;
+}
+/*
 struct Worker {
     interrupt: Interrupt,
     queue: Queue,
@@ -50,9 +43,7 @@ struct Worker {
     backend: Box<dyn TpmBackend>,
 }
 
-pub trait TpmBackend: Send {
-    fn execute_command<'a>(&'a mut self, command: &[u8]) -> &'a [u8];
-}
+
 
 impl Worker {
     fn perform_work(&mut self, desc: DescriptorChain) -> Result<u32> {
@@ -170,16 +161,29 @@ impl Worker {
     }
 }
 
+#[derive(PartialEq, Eq)]
+enum NeedsInterrupt {
+    Yes,
+    No,
+}
+
+impl BitOrAssign for NeedsInterrupt {
+    fn bitor_assign(&mut self, rhs: NeedsInterrupt) {
+        if rhs == NeedsInterrupt::Yes {
+            *self = NeedsInterrupt::Yes;
+        }
+    }
+}
+
+*/
 /// Virtio vTPM device.
 pub struct Tpm {
     backend: Box<dyn TpmBackend>,
-    worker_thread: Option<WorkerThread<()>>,
 
     // Virtio fields
     pub(crate) avail_features: u64,
     pub(crate) acked_features: u64,
-    // TODO include this?
-    // config_space: Vec<u8>,
+
     pub(crate) activate_evt: EventFd,
 
     // Transport related fields.
@@ -189,17 +193,75 @@ pub struct Tpm {
     pub(crate) irq_trigger: IrqTrigger,
 }
 
+fn write_to_descriptor_chain(mem: &GuestMemoryMmap, data: &[u8], head: DescriptorChain) -> Result<()>{
+    let mut chunk = data;
+    let mut next_descriptor = Some(head);
+    while let Some(descriptor) = &next_descriptor {
+        if !descriptor.is_write_only() {
+            // skip read-only descriptors
+            next_descriptor = descriptor.next_descriptor();
+            continue;
+        }
+        let len = min(chunk.len(), descriptor.len as usize);
+        match mem.write_slice(&chunk[..len], descriptor.addr) {
+            Ok(()) => {
+                chunk = &chunk[len..];
+            }
+            Err(err) => {
+                error!("Failed to write slice: {:?}", err);
+                return Err(Error::GuestMemory(err));
+            }
+        }
+        if chunk.is_empty() {
+            return Ok(());
+        }
+        next_descriptor = descriptor.next_descriptor();
+    }
+    Err(Error::ResponseTooLong { size: chunk.len() })
+}
+
+fn read_from_descriptor_chain(mem: &GuestMemoryMmap, head: DescriptorChain) -> Result<Vec<u8>> {
+    let mut read_bytes = 0 as usize;
+    let mut buf = vec![0u8; TPM_BUFSIZE];
+    let mut next_descriptor = Some(head);
+    while let Some(descriptor) = &next_descriptor {
+        if descriptor.is_write_only() {
+            // skip write-only descriptors
+            next_descriptor = descriptor.next_descriptor();
+            continue;
+        }
+        let len = min(buf.len(), descriptor.len as usize);
+        if len < descriptor.len as usize {
+            // descriptor contains too much data
+            error!("Descriptor contains too much data for the TPM buffer");
+            return Err(Error::CommandTooLong { size: read_bytes + descriptor.len as usize });
+        }
+        let chunk = &mut buf[read_bytes..len];
+        match mem.read_slice(chunk, descriptor.addr) {
+            Ok(()) => {
+                read_bytes += len;
+            }
+            Err(err) => {
+                error!("Failed to read slice: {:?}", err);
+                return Err(Error::GuestMemory(err));
+            }
+        }
+        next_descriptor = descriptor.next_descriptor();
+    }
+    buf.truncate(read_bytes);
+    Ok(buf)
+
+}
+
 impl Tpm {
-    pub fn new(backend: Box<dyn TpmBackend>, base_features: u64) -> Result<Tpm> {
-        // TODO set features
-        let mut avail_features: u64 = 0;
+    pub fn new(backend: Box<dyn TpmBackend>) -> Result<Tpm> {
+        let avail_features: u64 = (1u64 << VIRTIO_F_VERSION_1) | (1u64 << VIRTIO_RING_F_EVENT_IDX);
 
         let queue_evts = [EventFd::new(libc::EFD_NONBLOCK).map_err(Error::EventFd)?];
 
         let queues = QUEUE_SIZES.iter().map(|&s| Queue::new(s)).collect();
         Ok(Tpm {
             backend: backend,
-            worker_thread: None,
             avail_features: avail_features,
             acked_features: 0u64,
             queues,
@@ -208,6 +270,57 @@ impl Tpm {
             irq_trigger: IrqTrigger::new().map_err(Error::IrqTrigger)?,
             activate_evt: EventFd::new(libc::EFD_NONBLOCK).map_err(Error::EventFd)?,
         })
+    }
+
+    pub fn process_virtio_queues(&mut self) {
+        self.process_queue(0);
+    }
+
+    fn process_queue(&mut self, queue_index: usize) {
+        let mem = self.device_state.mem().unwrap();
+
+        let queue = &mut self.queues[queue_index];
+        
+        while let Some(head) = queue.pop_or_enable_notification(mem) {
+            
+            
+            if !head.has_next() {
+                error!("Descriptorchain only contained 1 item, should be 2 as per the driver.");
+                continue;
+            }
+            let head_index = head.index;
+            let len = head.len as usize;
+            if len > TPM_BUFSIZE {
+                error!("{}", Error::CommandTooLong { size: len });
+                // skip this descriptorchain
+                continue;
+            }
+            let cmd = match read_from_descriptor_chain(mem, head.clone()) {
+                Ok(cmd) => cmd,
+                Err(err) => {
+                    error!("Failed to read descriptorchain: {}", err);
+                    continue;
+                }
+            };
+            let resp = &self.backend.execute_command(&cmd);
+            if resp.len() > TPM_BUFSIZE {
+                error!("{}", Error::ResponseTooLong { size: resp.len() });
+                continue;
+            }
+            match write_to_descriptor_chain(mem, resp, head) {
+                Ok(()) => match queue.add_used(mem, head_index, resp.len() as u32) {
+                    Ok(()) => (),
+                    Err(err) => {
+                        error!("Failed to add available descriptor {}: {}", head_index, err);
+                        continue;
+                    }
+                }
+                Err(err) => {
+                    error!("Failed to write descriptorchain {}", err);
+                    continue;
+                }
+            }
+        }
     }
 }
 
@@ -226,80 +339,67 @@ impl VirtioDevice for Tpm {
 
     fn device_type(&self) -> u32 {
         TYPE_TPM
-    }
-
-    // fn keep_rds(&self) -> Vec<RawDescriptor> {
-    //     Vec::new()
-    // }
-
-    // fn queue_max_sizes(&self) -> &[u16] {
-    //     QUEUE_SIZES
-    // }
-
-    
+    }    
 
     fn activate(
         &mut self,
-        mem: GuestMemory,
-        interrupt: Interrupt,
-        mut queues: Vec<(Queue, Event)>,
-    ) -> Result<()> {
-        if queues.len() != 1 {
-            return Err(error!("expected 1 queue, got {}", queues.len()));
+        mem: GuestMemoryMmap
+    ) -> ActivateResult {
+        if self.queues.len() != 1 {
+            error!("expected 1 queue, got {}", self.queues.len());
+            return Err(super::super::ActivateError::BadActivate);
         }
-        let (queue, queue_evt) = queues.remove(0);
-
-        let backend = self.backend.take().context("no backend in vtpm")?;
-
-        let worker = Worker {
-            interrupt,
-            queue,
-            mem,
-            queue_evt,
-            backend,
-        };
-
-        self.worker_thread = Some(WorkerThread::start("v_tpm", |kill_evt| {
-            worker.run(kill_evt)
-        }));
+        if self.activate_evt.write(1).is_err() {
+            error!("Tpm: Cannot write to activate_evt");
+            return Err(super::super::ActivateError::BadActivate);
+        }
+        self.device_state = DeviceState::Activated(mem);
 
         Ok(())
     }
-}
 
-impl Suspendable for Tpm {}
+    fn queues(&self) -> &[Queue] {
+        &self.queues
+    }
 
-#[derive(PartialEq, Eq)]
-enum NeedsInterrupt {
-    Yes,
-    No,
-}
+    fn queues_mut(&mut self) -> &mut [Queue] {
+        &mut self.queues
+    }
 
-impl BitOrAssign for NeedsInterrupt {
-    fn bitor_assign(&mut self, rhs: NeedsInterrupt) {
-        if rhs == NeedsInterrupt::Yes {
-            *self = NeedsInterrupt::Yes;
-        }
+    fn queue_events(&self) -> &[EventFd] {
+        &self.queue_evts
+    }
+
+    fn interrupt_evt(&self) -> &EventFd {
+        &self.irq_trigger.irq_evt
+    }
+
+    fn interrupt_status(&self) -> Arc<AtomicUsize> {
+        self.irq_trigger.irq_status.clone()
+    }
+
+    fn read_config(&self, offset: u64, data: &mut [u8]) {
+        warn!(
+            "vtpm: guest driver attempted to read device config (offset={:x}, len={:x})",
+            offset,
+            data.len()
+        );
+    }
+
+    fn write_config(&mut self, offset: u64, data: &[u8]) {
+        // TODO add metric here
+        warn!(
+            "vtpm: guest driver attempted to write device config (offset={:x}, len={:x})",
+            offset,
+            data.len()
+        );
+    }
+
+    fn is_activated(&self) -> bool {
+        self.device_state.is_activated()
     }
 }
 
-type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Error, Debug)]
-enum Error {
-    #[error("vtpm response buffer is too small: {size} < {required} bytes")]
-    BufferTooSmall { size: usize, required: usize },
-    #[error("vtpm command is too long: {size} > {} bytes", TPM_BUFSIZE)]
-    CommandTooLong { size: usize },
-    #[error("virtio descriptor error: {0}")]
-    Descriptor(DescriptorError),
-    #[error("vtpm failed to read from guest memory: {0}")]
-    Read(io::Error),
-    #[error(
-        "vtpm simulator generated a response that is unexpectedly long: {size} > {} bytes",
-        TPM_BUFSIZE
-    )]
-    ResponseTooLong { size: usize },
-    #[error("vtpm failed to write to guest memory: {0}")]
-    Write(io::Error),
-}
+
+type Result<T> = std::result::Result<T, Error>;

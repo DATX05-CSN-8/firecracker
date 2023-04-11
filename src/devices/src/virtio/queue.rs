@@ -63,6 +63,7 @@ struct Descriptor {
 unsafe impl ByteValued for Descriptor {}
 
 /// A virtio descriptor chain.
+#[derive(Clone)]
 pub struct DescriptorChain<'a> {
     desc_table: GuestAddress,
     queue_size: u16,

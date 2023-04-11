@@ -19,10 +19,9 @@ use devices::legacy::RTCDevice;
 use devices::legacy::SerialDevice;
 use devices::pseudo::BootTimer;
 use devices::virtio::{
-    Balloon, Block, MmioTransport, Net, VirtioDevice, TYPE_BALLOON, TYPE_BLOCK, TYPE_NET,
+    Balloon, Block, MmioTransport, Net, VirtioDevice, Tpm, TYPE_BALLOON, TYPE_BLOCK, TYPE_NET,
     TYPE_VSOCK, TYPE_TPM,
 };
-use devices::virtio::tpm::Tpm;
 use devices::BusDevice;
 use kvm_ioctls::{IoEventAddress, VmFd};
 use linux_loader::cmdline as kernel_cmdline;
@@ -474,7 +473,7 @@ impl MMIODeviceManager {
                     let tpm = virtio.as_mut_any().downcast_mut::<Tpm>().unwrap();
 
                     if tpm.is_activated() {
-                        inf!("kick tpm {}.", id);
+                        info!("kick tpm {}.", id);
                         tpm.process_virtio_queues();
                     }
                 }

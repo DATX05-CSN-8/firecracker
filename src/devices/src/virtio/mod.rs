@@ -28,6 +28,7 @@ pub use self::net::*;
 pub use self::persist::*;
 pub use self::queue::*;
 pub use self::vsock::*;
+pub use self::tpm::*;
 
 /// When the driver initializes the device, it lets the device know about the
 /// completed stages using the Device Status Field.
