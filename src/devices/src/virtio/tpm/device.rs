@@ -20,6 +20,7 @@ use crate::virtio::ActivateResult;
 use crate::virtio::DescriptorChain;
 use crate::virtio::DeviceState;
 use crate::virtio::IrqTrigger;
+use crate::virtio::IrqType;
 use crate::virtio::Queue;
 use crate::virtio::TYPE_TPM;
 use crate::virtio::VirtioDevice;
@@ -324,6 +325,11 @@ impl Tpm {
                     error!("Failed to write descriptorchain {}", err);
                     continue;
                 }
+            }
+            if queue.prepare_kick(mem) {
+                self.irq_trigger.trigger_irq(IrqType::Vring).unwrap_or_else(|e| {
+                    error!("Error triggering tpm irq {:?}", e);
+                })
             }
         }
     }
