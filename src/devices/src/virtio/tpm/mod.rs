@@ -2,6 +2,7 @@ pub mod device;
 pub mod queue_utils;
 pub mod event_handler;
 pub mod emulator;
+pub mod chardev;
 
 use std::io;
 

@@ -8,6 +8,7 @@ extern crate log;
 
 pub mod emulator;
 pub mod socket;
+pub mod chardev;
 use std::convert::TryInto;
 use std::fmt::{Display, Formatter};
 
