@@ -71,6 +71,10 @@
                 "comment": "Used for drive patching & rescanning, for reading the local timezone from /etc/localtime"
             },
             {
+                "syscall": "sendmsg",
+                "comment": "Used for communicating with TPM Unix socket"
+            },
+            {
                 "syscall": "ftruncate",
                 "comment": "Used for snapshotting"
             },
