@@ -408,6 +408,10 @@ pub struct PutRequestsMetrics {
     pub vsock_count: SharedIncMetric,
     /// Number of failures in creating a vsock device.
     pub vsock_fails: SharedIncMetric,
+    /// Number of PUTs for creating a TPM device.
+    pub tpm_count: SharedIncMetric,
+    /// Number of failures in creating a TPM device.
+    pub tpm_fails: SharedIncMetric,
 }
 
 /// Metrics specific to PATCH API Requests for counting user triggered actions and/or failures.

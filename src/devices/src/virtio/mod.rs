@@ -12,6 +12,7 @@ use std::io::Error as IOError;
 pub mod balloon;
 pub mod block;
 pub mod device;
+pub mod tpm;
 mod mmio;
 pub mod net;
 pub mod persist;
@@ -27,6 +28,7 @@ pub use self::net::*;
 pub use self::persist::*;
 pub use self::queue::*;
 pub use self::vsock::*;
+pub use self::tpm::*;
 
 /// When the driver initializes the device, it lets the device know about the
 /// completed stages using the Device Status Field.
@@ -50,6 +52,7 @@ mod device_status {
 pub const TYPE_NET: u32 = 1;
 pub const TYPE_BLOCK: u32 = 2;
 pub const TYPE_BALLOON: u32 = 5;
+pub const TYPE_TPM: u32 = 62;
 
 /// Offset from the base MMIO address of a virtio device used by the guest to notify the device of
 /// queue events.

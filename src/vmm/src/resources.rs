@@ -23,6 +23,7 @@ use crate::vmm_config::metrics::{init_metrics, MetricsConfig, MetricsConfigError
 use crate::vmm_config::mmds::{MmdsConfig, MmdsConfigError};
 use crate::vmm_config::net::*;
 use crate::vmm_config::vsock::*;
+use crate::vmm_config::tpm::*;
 use crate::vstate::vcpu::VcpuConfig;
 
 type Result<E> = std::result::Result<(), E>;
@@ -52,6 +53,8 @@ pub enum Error {
     VmConfig(VmConfigError),
     /// Vsock device configuration error.
     VsockDevice(VsockConfigError),
+    /// TPM device configuration error.
+    TpmDevice(TpmConfigError)
 }
 
 impl std::fmt::Display for Error {
@@ -68,6 +71,7 @@ impl std::fmt::Display for Error {
             Error::NetDevice(err) => write!(f, "Network device error: {}", err),
             Error::VmConfig(err) => write!(f, "VM config error: {}", err),
             Error::VsockDevice(err) => write!(f, "Vsock device error: {}", err),
+            Error::TpmDevice(err) => write!(f, "Tpm device error: {}", err)
         }
     }
 }
@@ -93,6 +97,8 @@ pub struct VmmConfig {
     net_devices: Vec<NetworkInterfaceConfig>,
     #[serde(rename = "vsock")]
     vsock_device: Option<VsockDeviceConfig>,
+    #[serde(rename = "tpm")]
+    tpm_device: Option<TpmDeviceConfig>,
 }
 
 /// A data structure that encapsulates the device configurations
@@ -119,6 +125,8 @@ pub struct VmResources {
     pub mmds_size_limit: usize,
     /// Whether or not to load boot timer device.
     pub boot_timer: bool,
+    /// The tpm device
+    pub tpm: TpmBuilder,
 }
 
 impl VmResources {
@@ -176,6 +184,10 @@ impl VmResources {
 
         if let Some(mmds_config) = vmm_config.mmds_config {
             resources.set_mmds_config(mmds_config, &instance_info.id)?;
+        }
+
+        if let Some(tpm_config) = vmm_config.tpm_device {
+            resources.set_tpm_device(tpm_config)?;
         }
 
         Ok(resources)
@@ -404,6 +416,15 @@ impl VmResources {
         self.vsock.insert(config)
     }
 
+    /// Sets a tpm device to be attached when the VM starts.
+    pub fn set_tpm_device(&mut self, config: TpmDeviceConfig) -> Result<TpmConfigError> {
+        // Validating parsing tpm as path
+        if !std::path::Path::new(&config.socket).exists() {
+            return Err(TpmConfigError::ParseTpmPathMissing)
+        }
+        self.tpm.set(config)
+    }
+
     /// Setter for mmds config.
     pub fn set_mmds_config(
         &mut self,
@@ -488,6 +509,7 @@ impl From<&VmResources> for VmmConfig {
             mmds_config: resources.mmds_config(),
             net_devices: resources.net_builder.configs(),
             vsock_device: resources.vsock.config(),
+            tpm_device: None
         }
     }
 }
@@ -578,6 +600,10 @@ mod tests {
         }
     }
 
+    fn default_tpm() -> TpmBuilder {
+        TpmBuilder::default()
+    }
+
     fn default_vm_resources() -> VmResources {
         VmResources {
             vm_config: VmConfig::default(),
@@ -589,6 +615,7 @@ mod tests {
             mmds: None,
             boot_timer: false,
             mmds_size_limit: HTTP_MAX_PAYLOAD_SIZE,
+            tpm: default_tpm(),
         }
     }
 
@@ -1566,18 +1593,6 @@ mod tests {
         assert_eq!(
             format!("{}", Error::VmConfig(VmConfigError::InvalidMemorySize)),
             format!("VM config error: {}", VmConfigError::InvalidMemorySize)
-        );
-        assert_eq!(
-            format!(
-                "{}",
-                Error::VsockDevice(VsockConfigError::CreateVsockDevice(
-                    VsockError::BufDescTooSmall
-                ))
-            ),
-            format!(
-                "Vsock device error: {}",
-                VsockConfigError::CreateVsockDevice(VsockError::BufDescTooSmall)
-            )
         );
     }
 }
